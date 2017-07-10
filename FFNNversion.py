@@ -58,7 +58,6 @@ for i in range(2085):
 
 	label_vec = [0 for x in range(8)];
 	label_vec[whichclass] = 1;
-	print(label_vec);
 	if (i < 1085):
 		train_label.append(label_vec);
 	elif (i >= 1085 and i <1835):
@@ -119,7 +118,31 @@ for i in range(2085):
 
 train_text = np.asarray(train_text);
 validation_text = np.asarray(validation_text);
-test_text = np.asarray(test_text)
+test_text = np.asarray(test_text);
+train_label = np.asarray(train_label);
+validation_label = np.asarray(validation_label);
+test_label = np.asarray(test_label);
+
+
+
+def get_next_batch(batch_num, batch_start):
+	new_batch_start = (batch_start + batch_num - 1) % len(train_text);
+	if new_batch_start > batch_start:
+		tmp = batch_start;
+		batch_start = (new_batch_start + 1) % len(train_text);
+		return train_text[tmp:new_batch_start], train_label[tmp:new_batch_start], batch_start;
+	else:
+		tmp = batch_start;
+		batch_start = (new_batch_start + 1) % len(train_text);
+
+		return_train_text = np.concatenate((train_text[tmp:(len(train_text)-1)], train_text[0:batch_start]));
+		return_train_label = np.concatenate((train_label[tmp:(len(train_label)-1)],train_label[0:batch_start]))
+		# return_train_text = train_text[tmp:(len(train_text)-1)].append(train_text[0:batch_start]);
+		# return_train_label = train_label[tmp:(len(train_label)-1)].append(train_label[0:batch_start]);
+		return return_train_text, return_train_label, batch_start;
+
+
+
 
 def training_network(hidden_layer_num, step_length, whether_training):
 
@@ -146,8 +169,10 @@ def training_network(hidden_layer_num, step_length, whether_training):
 		with tf.Session() as sess:
 			sess.run(init)
 			cost = 10000;
+			batch_start = 0;
 			for step in range(200000):
-				sess.run(train_step, feed_dict={X: train_text, y: train_label});
+				x1,y1,batch_start = get_next_batch(50, batch_start);
+				sess.run(train_step, feed_dict={X: x1, y: y1});
 				if ((step+1)%100==0):
 					validation_feed = {X: validation_text, y: validation_label};
 					curcost = sess.run(cross_entropy, feed_dict=validation_feed);
@@ -161,9 +186,6 @@ def training_network(hidden_layer_num, step_length, whether_training):
 						return True;					
 					else:
 						cost = curcost
-					
-
-
 			return False;
 training_network(100, 0.1, 1);
 
