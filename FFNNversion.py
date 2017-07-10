@@ -9,6 +9,7 @@ from bokeh.models import ColumnDataSource, LabelSet
 from bokeh.plotting import figure, show, output_file
 from bokeh.io import output_notebook
 from gensim.models import Word2Vec
+from operator import add
 output_notebook()
 
 import urllib.request
@@ -73,18 +74,34 @@ def get_embedding(word):
 	else:
 		return [0 for x in range(100)];
 
-
 print(get_embedding("fuckshit"))
 
 for i in range(2085):
+	tmp = re.sub(r'\([^)]*\)', '', rawtext[i]);
 
+	sentences_strings_ted = []
+	for line in tmp.split('\n'):
+	    m = re.match(r'^(?:(?P<precolon>[^:]{,20}):)?(?P<postcolon>.*)$', line)
+	    sentences_strings_ted.extend(sent for sent in m.groupdict()['postcolon'].split('.') if sent)
+
+	sentences_ted = []
+	for sent_str in sentences_strings_ted:
+	    tokens = re.sub(r"[^a-z0-9]+", " ", sent_str.lower()).split()
+	    sentences_ted.append(tokens)
+	sum_embedding = np.asarray([0 for x in range(100)])
+
+	for t in range(len(sentences_ted)):
+		for p in range(len(sentences_ted[t])):
+			sum_embedding = sum_embedding + np.asarray(get_embedding(sentences_ted[t][p]));
+	# sum_embedding = np.asarray(sum_embedding);
+
+	print(sum_embedding);
 	if (i < 1085):
-		train_text.append(re.sub(r'\([^)]*\)', '', rawtext[i]));
+		train_text.append(sum_embedding);
 	elif (i >= 1085 and i <1835):
-		validation_text.append(re.sub(r'\([^)]*\)', '', rawtext[i]));
+		validation_text.append(sum_embedding);
 	else:
-		test_text.append(re.sub(r'\([^)]*\)', '', rawtext[i]));
-
+		test_text.append(sum_embedding);
 
 
 
