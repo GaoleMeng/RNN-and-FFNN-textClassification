@@ -8,6 +8,7 @@ import numpy as np;
 from bokeh.models import ColumnDataSource, LabelSet
 from bokeh.plotting import figure, show, output_file
 from bokeh.io import output_notebook
+from gensim.models import Word2Vec
 output_notebook()
 
 import urllib.request
@@ -28,7 +29,6 @@ test_label = [];
 train_text = [];
 validation_text = [];
 test_text = [];
-
 
 with zipfile.ZipFile('ted_en-20160408.zip', 'r') as z:
     doc = lxml.etree.parse(z.open('ted_en-20160408.xml', 'r'))
@@ -52,7 +52,32 @@ for i in range(2085):
 		test_label.append(whichclass);
 
 rawtext = doc.xpath('//content/text()');
+input_text = '\n'.join(doc.xpath('//content/text()'))
+input_text_noparens = re.sub(r'\([^)]*\)', '', input_text)
+
+sentences_strings_ted = []
+for line in input_text_noparens.split('\n'):
+    m = re.match(r'^(?:(?P<precolon>[^:]{,20}):)?(?P<postcolon>.*)$', line)
+    sentences_strings_ted.extend(sent for sent in m.groupdict()['postcolon'].split('.') if sent)
+
+sentences_ted = []
+for sent_str in sentences_strings_ted:
+    tokens = re.sub(r"[^a-z0-9]+", " ", sent_str.lower()).split()
+    sentences_ted.append(tokens)
+
+model_ted = Word2Vec(sentences_ted, size=100, window=5, min_count=5, workers=4)
+
+def get_embedding(word):
+	if (word in model_ted.wv):
+		return model_ted.wv[word];
+	else:
+		return [0 for x in range(100)];
+
+
+print(get_embedding("fuckshit"))
+
 for i in range(2085):
+
 	if (i < 1085):
 		train_text.append(re.sub(r'\([^)]*\)', '', rawtext[i]));
 	elif (i >= 1085 and i <1835):
@@ -60,7 +85,12 @@ for i in range(2085):
 	else:
 		test_text.append(re.sub(r'\([^)]*\)', '', rawtext[i]));
 
-print(train_text)
+
+
+
+
+#print(train_text)
+
 
 
 
