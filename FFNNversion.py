@@ -10,7 +10,6 @@ from bokeh.plotting import figure, show, output_file
 from bokeh.io import output_notebook
 from gensim.models import Word2Vec
 from operator import add
-output_notebook()
 
 import urllib.request
 import zipfile
@@ -37,20 +36,35 @@ with zipfile.ZipFile('ted_en-20160408.zip', 'r') as z:
 
 rawlabel = doc.xpath('//keywords/text()');
 for i in range(2085):
-	whichclass = "ooo";
-	if ("technology" in rawlabel[i]):
-		whichclass = whichclass.replace(whichclass[0], "T", 1);
-	if ("entertainment" in rawlabel[i]):
-		whichclass = whichclass.replace(whichclass[1], "E", 1);
-	if ("design" in rawlabel[i]):
-		whichclass = whichclass.replace(whichclass[2], "D", 1);
+	# whichclass = "ooo";
 
+	# if ("technology" in rawlabel[i]):
+	# 	whichclass = whichclass.replace(whichclass[0], "T", 1);
+	# if ("entertainment" in rawlabel[i]):
+	# 	whichclass = whichclass.replace(whichclass[1], "E", 1);
+	# if ("design" in rawlabel[i]):
+	# 	whichclass = whichclass.replace(whichclass[2], "D", 1);
+		# whichclass = "ooo";
+
+	whichclass = 0;
+
+	if ("technology" in rawlabel[i]):
+		whichclass += 4;
+	if ("entertainment" in rawlabel[i]):
+		whichclass += 2;
+	if ("design" in rawlabel[i]):
+		whichclass += 1;
+
+
+	label_vec = [0 for x in range(8)];
+	label_vec[whichclass] = 1;
+	print(label_vec);
 	if (i < 1085):
-		train_label.append(whichclass);
+		train_label.append(label_vec);
 	elif (i >= 1085 and i <1835):
-		validation_label.append(whichclass);
+		validation_label.append(label_vec);
 	else:
-		test_label.append(whichclass);
+		test_label.append(label_vec);
 
 rawtext = doc.xpath('//content/text()');
 input_text = '\n'.join(doc.xpath('//content/text()'))
@@ -68,13 +82,13 @@ for sent_str in sentences_strings_ted:
 
 model_ted = Word2Vec(sentences_ted, size=100, window=5, min_count=5, workers=4)
 
+
 def get_embedding(word):
 	if (word in model_ted.wv):
 		return model_ted.wv[word];
 	else:
 		return [0 for x in range(100)];
 
-print(get_embedding("fuckshit"))
 
 for i in range(2085):
 	tmp = re.sub(r'\([^)]*\)', '', rawtext[i]);
@@ -95,13 +109,66 @@ for i in range(2085):
 			sum_embedding = sum_embedding + np.asarray(get_embedding(sentences_ted[t][p]));
 	# sum_embedding = np.asarray(sum_embedding);
 
-	print(sum_embedding);
 	if (i < 1085):
 		train_text.append(sum_embedding);
 	elif (i >= 1085 and i <1835):
 		validation_text.append(sum_embedding);
 	else:
 		test_text.append(sum_embedding);
+
+
+train_text = np.asarray(train_text);
+validation_text = np.asarray(validation_text);
+test_text = np.asarray(test_text)
+
+def training_network(hidden_layer_num, step_length, whether_training):
+
+	X = tf.placeholder(tf.float32, [None, 100]);
+	y = tf.placeholder(tf.float32, [None, 8]);
+
+	W = tf.Variable(tf.zeros([100, hidden_layer_num]));
+	b = tf.Variable(tf.zeros([hidden_layer_num]));
+
+	h = tf.nn.tanh(tf.matmul(X, W)+b);
+
+	V = tf.Variable(tf.zeros([hidden_layer_num, 8]));
+	c = tf.Variable(tf.zeros([8]));
+
+	p = tf.nn.softmax(tf.matmul(h, V) + c);
+
+	if (whether_training):
+		cross_entropy = tf.reduce_mean(-tf.reduce_sum(y * tf.log(p), reduction_indices=[1]))
+		train_step = tf.train.GradientDescentOptimizer(step_length).minimize(cross_entropy)
+		correct_prediction = tf.equal(tf.argmax(p,1), tf.argmax(y,1))
+		accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32));
+		init = tf.initialize_all_variables();
+
+		with tf.Session() as sess:
+			sess.run(init)
+			cost = 10000;
+			for step in range(200000):
+				sess.run(train_step, feed_dict={X: train_text, y: train_label});
+				if ((step+1)%100==0):
+					validation_feed = {X: validation_text, y: validation_label};
+					curcost = sess.run(cross_entropy, feed_dict=validation_feed);
+					print("cost on validation set: %f" % curcost);
+					print("accuracy on validation set: %f" % sess.run(accuracy, feed_dict=validation_feed));
+					print("cost on training set: %f" % sess.run(cross_entropy, feed_dict={X: train_text, y: train_label}));
+					print("accuracy on training set: %f" % sess.run(accuracy, feed_dict={X: train_text, y: train_label}));
+					if step == 200000-1:
+						test_feed = {X: test_text, y: test_label};
+						print("accuracy on test data: %f" % sess.run(accuracy, feed_dict=test_feed));
+						return True;					
+					else:
+						cost = curcost
+					
+
+
+			return False;
+training_network(100, 0.1, 1);
+
+
+
 
 
 
