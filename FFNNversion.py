@@ -177,7 +177,7 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 		correct_prediction = tf.equal(tf.argmax(p,1), tf.argmax(y,1))
 		accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32));
 		init = tf.initialize_all_variables();
-
+		test_feed = {X: test_text, y: test_label};
 		with tf.Session() as sess:
 			sess.run(init)
 			cost = 10000;
@@ -194,15 +194,15 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 
 					print("cost on training set: %f" % sess.run(cross_entropy, feed_dict={X: train_text, y: train_label}));
 					print("accuracy on training set: %f" % accuracy.eval({X: train_text, y: train_label}));
+					print("accuracy on test data: %f" % sess.run(accuracy, feed_dict=test_feed));
 					print(" ")
 					if step == 1000000-1:
-						test_feed = {X: test_text, y: test_label};
 						print("accuracy on test data: %f" % sess.run(accuracy, feed_dict=test_feed));
 						return True;					
 					else:
 						cost = curcost
 			return False;
-training_network(100, 0.003, 1, 0);
+training_network(50, 0.003, 1, 0);
 
 
 
