@@ -108,6 +108,7 @@ for i in range(2085):
 			sum_embedding = sum_embedding + np.asarray(get_embedding(sentences_ted[t][p]));
 	# sum_embedding = np.asarray(sum_embedding);
 
+
 	if (i < 1085):
 		train_text.append(sum_embedding);
 	elif (i >= 1085 and i <1835):
@@ -144,20 +145,28 @@ def get_next_batch(batch_num, batch_start):
 
 
 
-def training_network(hidden_layer_num, step_length, whether_training):
+def training_network(hidden_layer_num, step_length, whether_training, whether_dropout):
 
 	X = tf.placeholder(tf.float32, [None, 100]);
 	y = tf.placeholder(tf.float32, [None, 8]);
 
-	W = tf.Variable(tf.zeros([100, hidden_layer_num]));
-	b = tf.Variable(tf.zeros([hidden_layer_num]));
+	W = tf.Variable(tf.random_normal([100, hidden_layer_num]));
+	b = tf.Variable(tf.random_normal([hidden_layer_num]));
 
-	h = tf.nn.tanh(tf.matmul(X, W)+b);
+	if (whether_dropout):
+		W = tf.nn.dropout(W, 0.5);
+		h = tf.nn.tanh(tf.matmul(X, W)+b);
+	else:
+		h = tf.nn.tanh(tf.matmul(X, W)+b);
 
-	V = tf.Variable(tf.zeros([hidden_layer_num, 8]));
-	c = tf.Variable(tf.zeros([8]));
+	V = tf.Variable(tf.random_normal([hidden_layer_num, 8]));
+	c = tf.Variable(tf.random_normal([8]));
 
-	p = tf.nn.softmax(tf.matmul(h, V) + c);
+	if (whether_dropout):
+		V = tf.nn.dropout(V, 0.5);
+		p = tf.nn.softmax(tf.matmul(h, V) + c);
+	else:
+		p = tf.nn.softmax(tf.matmul(h, V) + c);
 
 	if (whether_training):
 		cross_entropy = tf.reduce_mean(-tf.reduce_sum(y * tf.log(p), reduction_indices=[1]))
@@ -170,24 +179,27 @@ def training_network(hidden_layer_num, step_length, whether_training):
 			sess.run(init)
 			cost = 10000;
 			batch_start = 0;
-			for step in range(200000):
+			for step in range(100000):
 				x1,y1,batch_start = get_next_batch(50, batch_start);
 				sess.run(train_step, feed_dict={X: x1, y: y1});
 				if ((step+1)%100==0):
 					validation_feed = {X: validation_text, y: validation_label};
 					curcost = sess.run(cross_entropy, feed_dict=validation_feed);
+					print("step: %f" % step)
 					print("cost on validation set: %f" % curcost);
-					print("accuracy on validation set: %f" % sess.run(accuracy, feed_dict=validation_feed));
+					print("accuracy on validation set: %f" % accuracy.eval(validation_feed));
+
 					print("cost on training set: %f" % sess.run(cross_entropy, feed_dict={X: train_text, y: train_label}));
-					print("accuracy on training set: %f" % sess.run(accuracy, feed_dict={X: train_text, y: train_label}));
-					if step == 200000-1:
+					print("accuracy on training set: %f" % accuracy.eval({X: train_text, y: train_label}));
+					print(" ")
+					if step == 100000-1:
 						test_feed = {X: test_text, y: test_label};
 						print("accuracy on test data: %f" % sess.run(accuracy, feed_dict=test_feed));
 						return True;					
 					else:
 						cost = curcost
 			return False;
-training_network(100, 0.1, 1);
+training_network(100, 0.003, 1, 1);
 
 
 
