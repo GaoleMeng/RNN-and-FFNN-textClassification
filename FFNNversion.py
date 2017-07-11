@@ -102,12 +102,15 @@ for i in range(2085):
 	    tokens = re.sub(r"[^a-z0-9]+", " ", sent_str.lower()).split()
 	    sentences_ted.append(tokens)
 	sum_embedding = np.asarray([0 for x in range(100)])
-
+	num = 1
 	for t in range(len(sentences_ted)):
 		for p in range(len(sentences_ted[t])):
 			sum_embedding = sum_embedding + np.asarray(get_embedding(sentences_ted[t][p]));
-	# sum_embedding = np.asarray(sum_embedding);
-
+			num = num + 1;
+	sum_embedding = np.asarray(sum_embedding);
+	for tt in range(100):
+		sum_embedding[tt] /= float(num);
+	print(sum_embedding);
 
 	if (i < 1085):
 		train_text.append(sum_embedding);
@@ -179,7 +182,7 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 			sess.run(init)
 			cost = 10000;
 			batch_start = 0;
-			for step in range(100000):
+			for step in range(1000000):
 				x1,y1,batch_start = get_next_batch(50, batch_start);
 				sess.run(train_step, feed_dict={X: x1, y: y1});
 				if ((step+1)%100==0):
@@ -192,14 +195,14 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 					print("cost on training set: %f" % sess.run(cross_entropy, feed_dict={X: train_text, y: train_label}));
 					print("accuracy on training set: %f" % accuracy.eval({X: train_text, y: train_label}));
 					print(" ")
-					if step == 100000-1:
+					if step == 1000000-1:
 						test_feed = {X: test_text, y: test_label};
 						print("accuracy on test data: %f" % sess.run(accuracy, feed_dict=test_feed));
 						return True;					
 					else:
 						cost = curcost
 			return False;
-training_network(100, 0.003, 1, 1);
+training_network(100, 0.003, 1, 0);
 
 
 
