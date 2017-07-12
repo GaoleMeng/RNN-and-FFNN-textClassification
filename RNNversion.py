@@ -111,11 +111,8 @@ def get_snetences_matrix_embedding(sentences):
 	return return_matrix;
 
 
-
-
-
 max_length = 0;
-max_lines = [];
+lines = [];
 for i in range(2085):
 	tmp = re.sub(r'\([^)]*\)', '', rawtext[i]);
 
@@ -129,13 +126,8 @@ for i in range(2085):
 	    tokens = re.sub(r"[^a-z0-9]+", " ", sent_str.lower()).split()
 	    sentences_ted.append(tokens)
 
-	for lines in sentences_ted:
-		if (len(lines) > max_length):
-			max_length = len(lines);
-			max_lines = lines;
-
-
-	
+	for _line in sentences_ted:
+		lines.append(_line)
 	# X = tf.placeholder(tf.float32, [None, 100]);
 	# y = tf.placeholder(tf)
 
@@ -148,15 +140,64 @@ for i in range(2085):
 	# sum_embedding = np.asarray(sum_embedding);
 	# for tt in range(100):
 	# 	sum_embedding[tt] /= float(num);
-
-
-
 	# if (i < 1085):
 	# 	train_text.append(sum_embedding);
 	# elif (i >= 1085 and i <1835):
 	# 	validation_text.append(sum_embedding);
 	# else:
 	# 	test_text.append(sum_embedding);
+
+
+print(len(lines));
+delete_list = [];
+max_length = 0;
+for i in range(len(lines)):
+	if (len(lines[i]) > 100 or len(lines[i])<=1):
+		delete_list.append(i);
+	else:
+		max_length = max(max_length, len(lines[i]));
+
+print(len(delete_list))
+for i in range(len(delete_list)):
+	lines.pop(delete_list[len(delete_list)-1-i]);
+print(len(lines))
+print(max_length)
+
+embedding_text_train = [];
+embedding_label_train = [];
+
+
+def generate_data(batch_size):
+	batch_nums = len(lines) // batch_size;
+	for i in range(batch_nums):
+		embedding_label_train.append(lines[i*batch_size:(i+1)*batch_size]);
+
+	for block in embedding_label_train:
+		max_length_per_block = 0;
+		for line in block:
+			max_length_per_block = max(max_length_per_block, len(line));
+
+		for line in block:
+			for i in range(len(line)):
+				line[i] = get_embedding(line[i]);
+			for i in range(max_length_per_block - len(line)):
+				line[i+len(line)] = [0 for x in range(100)]
+				
+		for line in block:
+			for i in range(len(line)):
+				line[i] = get_embedding(line[i]);
+			for i in range(max_length_per_block - len(line)):
+				line[i+len(line)] = [0 for x in range(100)]
+
+
+
+
+# def get_next_batch_lines(batch_num):
+
+
+
+
+
 
 
 train_text = np.asarray(train_text);
@@ -166,8 +207,8 @@ train_label = np.asarray(train_label);
 validation_label = np.asarray(validation_label);
 test_label = np.asarray(test_label);
 
-print(max_length)
-print(max_lines)
+# print(max_length)
+# print(max_lines)
 
 
 def get_next_batch(batch_num, batch_start):
@@ -247,8 +288,6 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 						cost = curcost
 			return False;
 training_network(50, 0.003, 1, 0);
-
-
 
 
 
