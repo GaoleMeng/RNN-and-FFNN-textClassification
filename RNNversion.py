@@ -82,7 +82,7 @@ for sent_str in sentences_strings_ted:
     tokens = re.sub(r"[^a-z0-9]+", " ", sent_str.lower()).split()
     sentences_ted.append(tokens)
 
-# model_ted = Word2Vec(sentences_ted, size=100, window=5, min_count=5, workers=4)
+model_ted = Word2Vec(sentences_ted, size=100, window=5, min_count=5, workers=4)
 
 
 def get_embedding(word):
@@ -91,16 +91,6 @@ def get_embedding(word):
 	else:
 		return [0 for x in range(100)];
 
-with tf.variable_scope("runn_cell"):
-	W = tf.get_variable("W", [input_size+state_size, state_size]);
-	b = tf.get_variable("b", [state_size]);
-
-def rnn_cell(rnn_input, state):
-	with tf.variable_scope("rnn_cell", reuse=True):
-		W = tf.get_Variable("W", [input_size+state_size, state_size]);
-		b = tf.get_variable("b", [state_size]);
-
-	return tf.tanh(tf.matmul(tf.concat([rnn_input, state], 1), W) + b)
 
 
 def get_snetences_matrix_embedding(sentences):
@@ -167,41 +157,53 @@ embedding_text_train = [];
 embedding_label_train = [];
 
 
+startnum = 1
+
 def generate_data(batch_size):
 	batch_nums = len(lines) // batch_size;
 
 	lines_label = [];
+	global startnum;
 
-	for i in range(batch_ nums):
-		embedding_text_train.append(lines[i*batch_size:(i+1)*batch_size]);
-		label_block = [];
+	seperate_text = [];
+	for i in range(batch_nums):
+		seperate_text.append(lines[i*batch_size:(i+1)*batch_size]);
 	word_dic = {};
-	startnum = 1;
+	
 	for line in lines:
 		for word in line:
 			if word not in word_dic:
 				word_dic[word] = startnum;
 				startnum = startnum + 1;
+	print(startnum);
+	print("copy compeleted")
+	for block in seperate_text:
 
-
-	embedding_label_train = embedding_text_train;
-	for block in embedding_label_train:
+		labelblock = [];
+		print("next block")
+		print(len(block))
 		max_length_per_block = 0;
 		for line in block:
 			max_length_per_block = max(max_length_per_block, len(line));
+		print(str(max_length_per_block)+"\n")
 
 		for line in block:
+			labelline = [];
 			for i in range(len(line)):
 				tmp_vec = [0 for x in range(startnum)];
 				if i < len(line)-1:
 					tmp_vec[word_dic[line[i+1]]] = 1;
 				else:
 					tmp_vec[0] = 1;
+				labelline.append(tmp_vec);
 			for i in range(max_length_per_block - len(line)):
-				line.append([0 for x in range(startnum)]) 
+				labelline.append([0 for x in range(startnum)])
+			labelblock.append(labelline); 
 
 
-	for block in embedding_text_train:
+	for block in seperate_text:
+		labelblock = [];
+		print("next block")
 		max_length_per_block = 0;
 		for line in block:
 			max_length_per_block = max(max_length_per_block, len(line));
@@ -214,12 +216,8 @@ def generate_data(batch_size):
 
 
 # def get_next_batch_lines(batch_num):
-
-
-
-
-
-
+print(startnum);
+generate_data(50);
 
 train_text = np.asarray(train_text);
 validation_text = np.asarray(validation_text);
@@ -230,6 +228,54 @@ test_label = np.asarray(test_label);
 
 # print(max_length)
 # print(max_lines)
+state_size = 100;
+
+X = tf.placeholder(tf.float32, [50, None, 100]);
+y = tf.placeholder(tf.float32, [50, None, startnum]);
+init_state = tf.zeros([50, state_size]);
+
+rnn_inputs = tf.unstack(X, axis = 1)
+
+
+
+with tf.variable_scope("run_cell"):
+	W = tf.get_variable("W", [100 + state_size, state_size]);
+	b = tf.get_variable("b", [state_size], initializer=tf.constant_initializer(0.0));
+
+def rnn_cell(rnn_input, state):
+	with tf.variable_scope("rnn_cell", reuse=True):
+		W = tf.get_Variable("W", [input_size+state_size, state_size]);
+		b = tf.get_variable("b", [state_size]);
+
+	return tf.tanh(tf.matmul(tf.concat([rnn_input, state], 1), W) + b)
+
+
+state = init_state;
+rnn_outputs = [];
+
+for rnn_input in rnn_inputs:
+	state = rnn_cell(rnn_input, state)
+	rnn_outputs.append(state)
+
+
+with tf.variable_scope("softmax"):
+	U = tf.get_Variable('U', [state_size, startnum]);
+	p = tf.get_Variable('p', [startnum], initializer=tf.constant_initializer(0.0));
+
+logits = [tf.matmul(rnn_output, U)+p for rnn_output in rnn_outputs];
+predictions = [tf.nn.softmax(logit) for logit in logits];
+
+correct_answer = tf.unstack(y, axis = 1);
+
+loss = tf.reduce_mean(-tf.reduce_sum(correct_answer*log(predictions), reduction_indices=[1]));
+train_step = tf.train.AdagradOptimizer(0.003).minimize(losses);
+
+
+# with tf.Session() as sess:
+# 	 sess.run(tf.global_variables_initializer())
+# 	 for i, epoch in enumerate(embedding_text_train)
+
+
 
 
 def get_next_batch(batch_num, batch_start):
@@ -252,7 +298,6 @@ def get_next_batch(batch_num, batch_start):
 # def get_text_embedding_rnn():
 
 # 	for i in range(len(sentences)):
-
 
 def training_network(hidden_layer_num, step_length, whether_training, whether_dropout):
 
@@ -308,7 +353,7 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 					else:
 						cost = curcost
 			return False;
-training_network(50, 0.003, 1, 0);
+# training_network(50, 0.003, 1, 0);
 
 
 
