@@ -169,10 +169,39 @@ embedding_label_train = [];
 
 def generate_data(batch_size):
 	batch_nums = len(lines) // batch_size;
-	for i in range(batch_nums):
-		embedding_label_train.append(lines[i*batch_size:(i+1)*batch_size]);
 
+	lines_label = [];
+
+	for i in range(batch_ nums):
+		embedding_text_train.append(lines[i*batch_size:(i+1)*batch_size]);
+		label_block = [];
+	word_dic = {};
+	startnum = 1;
+	for line in lines:
+		for word in line:
+			if word not in word_dic:
+				word_dic[word] = startnum;
+				startnum = startnum + 1;
+
+
+	embedding_label_train = embedding_text_train;
 	for block in embedding_label_train:
+		max_length_per_block = 0;
+		for line in block:
+			max_length_per_block = max(max_length_per_block, len(line));
+
+		for line in block:
+			for i in range(len(line)):
+				tmp_vec = [0 for x in range(startnum)];
+				if i < len(line)-1:
+					tmp_vec[word_dic[line[i+1]]] = 1;
+				else:
+					tmp_vec[0] = 1;
+			for i in range(max_length_per_block - len(line)):
+				line.append([0 for x in range(startnum)]) 
+
+
+	for block in embedding_text_train:
 		max_length_per_block = 0;
 		for line in block:
 			max_length_per_block = max(max_length_per_block, len(line));
@@ -181,15 +210,7 @@ def generate_data(batch_size):
 			for i in range(len(line)):
 				line[i] = get_embedding(line[i]);
 			for i in range(max_length_per_block - len(line)):
-				line[i+len(line)] = [0 for x in range(100)]
-				
-		for line in block:
-			for i in range(len(line)):
-				line[i] = get_embedding(line[i]);
-			for i in range(max_length_per_block - len(line)):
-				line[i+len(line)] = [0 for x in range(100)]
-
-
+				line.append([0 for x in range(100)])
 
 
 # def get_next_batch_lines(batch_num):
