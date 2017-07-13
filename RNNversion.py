@@ -38,6 +38,9 @@ with zipfile.ZipFile('ted_en-20160408.zip', 'r') as z:
 # input_text = '\n'.join(doc.xpath('//content/text()'))
 
 rawlabel = doc.xpath('//keywords/text()');
+
+
+
 for i in range(2085):
 	# whichclass = "ooo";
 
@@ -61,9 +64,9 @@ for i in range(2085):
 
 	label_vec = [0 for x in range(8)];
 	label_vec[whichclass] = 1;
-	if (i < 1085):
+	if (i < 1585):
 		train_label.append(label_vec);
-	elif (i >= 1085 and i <1835):
+	elif (i >= 1585 and i <1835):
 		validation_label.append(label_vec);
 	else:
 		test_label.append(label_vec);
@@ -99,7 +102,6 @@ def get_snetences_matrix_embedding(sentences):
 		for word in lines:
 			return_matrix.append(get_embedding(word));
 	return return_matrix;
-
 
 max_length = 0;
 lines = [];
@@ -138,27 +140,29 @@ for i in range(2085):
 	# 	test_text.append(sum_embedding);
 
 
-print(len(lines));
+# print(len(lines));
 delete_list = [];
 max_length = 0;
+
+total_words = 0;
 for i in range(len(lines)):
-	if (len(lines[i]) > 100 or len(lines[i])<=1):
+	if (len(lines[i]) > 40 or len(lines[i])<=3):
 		delete_list.append(i);
 	else:
 		max_length = max(max_length, len(lines[i]));
+		total_words += len(lines[i])
 
-print(len(delete_list))
+
 for i in range(len(delete_list)):
 	lines.pop(delete_list[len(delete_list)-1-i]);
-print(len(lines))
-print(max_length)
+
+print(len(lines));
 
 embedding_text_train = [];
 embedding_label_train = [];
 
 
 startnum = 1
-
 def generate_data(batch_size):
 	batch_nums = len(lines) // batch_size;
 
@@ -169,24 +173,18 @@ def generate_data(batch_size):
 	for i in range(batch_nums):
 		seperate_text.append(lines[i*batch_size:(i+1)*batch_size]);
 	word_dic = {};
-	
+    
 	for line in lines:
 		for word in line:
 			if word not in word_dic:
 				word_dic[word] = startnum;
 				startnum = startnum + 1;
-	print(startnum);
-	print("copy compeleted")
 	for block in seperate_text:
-
+		print("next clock");
 		labelblock = [];
-		print("next block")
-		print(len(block))
 		max_length_per_block = 0;
 		for line in block:
 			max_length_per_block = max(max_length_per_block, len(line));
-		print(str(max_length_per_block)+"\n")
-
 		for line in block:
 			labelline = [];
 			for i in range(len(line)):
@@ -199,20 +197,22 @@ def generate_data(batch_size):
 			for i in range(max_length_per_block - len(line)):
 				labelline.append([0 for x in range(startnum)])
 			labelblock.append(labelline); 
-
+			embedding_label_train.append(labelblock);
 
 	for block in seperate_text:
 		labelblock = [];
-		print("next block")
 		max_length_per_block = 0;
 		for line in block:
 			max_length_per_block = max(max_length_per_block, len(line));
 
 		for line in block:
+			labelline = [];
 			for i in range(len(line)):
-				line[i] = get_embedding(line[i]);
+				labelline.append(get_embedding(line[i]));
 			for i in range(max_length_per_block - len(line)):
-				line.append([0 for x in range(100)])
+				labelline.append([0 for x in range(100)])
+			labelblock.append(labelline);
+		embedding_text_train.append(labelblock);
 
 
 # def get_next_batch_lines(batch_num):
@@ -360,8 +360,6 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 
 
 #print(train_text)
-
-
 
 
 
