@@ -43,6 +43,12 @@ min_line_length = 3;
 state_size = 100;
 input_size = 100;
 
+file_num_for_test = 1585;
+file_num_for_vali = 250;
+file_num_for_test = 250;
+max_file_length = 0;
+max_lineinfile_length = 0;
+
 with zipfile.ZipFile('ted_en-20160408.zip', 'r') as z:
     doc = lxml.etree.parse(z.open('ted_en-20160408.xml', 'r'))
 # input_text = '\n'.join(doc.xpath('//content/text()'))
@@ -124,6 +130,7 @@ def get_snetences_matrix_embedding(sentences):
 
 max_length = 0;
 lines = [];
+seperate_files_lines = [];
 from sklearn.feature_extraction.text import CountVectorizer
 vectorizer = CountVectorizer(min_df=1)
 for i in range(2085):
@@ -139,7 +146,10 @@ for i in range(2085):
 	    tokens = re.sub(r"[^a-z0-9]+", " ", sent_str.lower()).split()
 	    sentences_ted.append(tokens)
 
+	seperate_files_lines.append(sentences_ted);
+	max_file_length = max(max_file_length, len(sentences_ted));
 	for _line in sentences_ted:
+		max_lineinfile_length = max(max_lineinfile_length, len(_line));
 		lines.append(_line)
 	# X = tf.placeholder(tf.float32, [None, 100]);
 	# y = tf.placeholder(tf)
@@ -182,9 +192,6 @@ for i in range(len(delete_list)):
 	lines.pop(delete_list[len(delete_list)-1-i]);
 
 
-
-for i in range(9):
-    del lines[-i-1];
 print(len(lines));
 
 
@@ -211,6 +218,8 @@ batch_nums = len(lines) // batch_size;
 
 embedding_label_train = np.zeros((batch_nums, batch_size, max_line_length, startnum), dtype='float32')
 embedding_text_train = np.zeros((batch_nums, batch_size, max_line_length, 100), dtype='float32')
+embedding_text_train_next = np.zeros((1585, max_file_length, max_lineinfile_length, 100), dtype='float32')
+
 
 def generate_data(batch_size):
     lines_label = [];
@@ -230,14 +239,19 @@ def generate_data(batch_size):
                 elif z == len(seperate_text[i][j]) -1:
                     embedding_label_train[i][j][z][0] = 1;
                     embedding_text_train[i][j][z] = get_embedding(seperate_text[i][j][z]);
-                    
+    for i in range(file_num_for_train):
+    	for j in range(len(seperate_files_lines[i])):
+    		for z in range(len(seperate_files_lines[i][j]))
+    			embedding_text_train_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
+
+
 # def get_next_batch_lines(batch_num):
 generate_data(50);
 
 
 # In[97]:
 
-train_text = np.asarray(train_text);
+train_text = np.zeros([file_num_for_train, 100]);
 validation_text = np.asarray(validation_text);
 test_text = np.asarray(test_text);
 train_label = np.asarray(train_label);
@@ -250,9 +264,11 @@ state_size = 100;
 
 X = tf.placeholder(tf.float32, [batch_size, max_line_length, 100]);
 y = tf.placeholder(tf.float32, [batch_size, max_line_length, startnum]);
+X_for_second_stage = tf.placeholder(tf.float32, [max_file_length, max_lineinfile_length, 100]);
 init_state = tf.zeros([batch_size, state_size]);
 
 rnn_inputs = tf.unstack(X, axis = 1)
+rnn_inputs_for_second_stage = tf.unstack(X, axis = 1)
 
 print(state_size)
 with tf.variable_scope("rnn_cell"):
@@ -268,10 +284,15 @@ def rnn_cell(rnn_input, state):
 
 state = init_state;
 rnn_outputs = [];
+rnn_outpus_for_second_stage = [];
 
 for rnn_input in rnn_inputs:
 	state = rnn_cell(rnn_input, state)
 	rnn_outputs.append(state)
+
+for rnn_input in rnn_inputs_for_second_stage:
+	state = rnn_cell(rnn_input, state)
+	rnn_outputs_for_second_stage.append(state)
 
 with tf.variable_scope("softmax"):
 	U = tf.get_variable('U', [state_size, startnum]);
@@ -285,7 +306,9 @@ correct_answer = tf.unstack(y, axis = 1);
 loss = tf.reduce_mean(-tf.reduce_sum(correct_answer*tf.log(predictions), reduction_indices=[1]));
 train_step = tf.train.AdagradOptimizer(0.003).minimize(loss);
 
-represent = tf.add(state);
+represent = tf.add_n(rnn_outputs_for_second_stage)
+represent_to_embedding = tf.reduce_mean(represent, axis = 0).eval();
+
 
 def train_network(num_epochs, num_steps, state_size=100, verbose=True):
     with tf.Session() as sess:
@@ -301,8 +324,7 @@ def train_network(num_epochs, num_steps, state_size=100, verbose=True):
                 training_state = np.zeros((batch_size, state_size))
                 tr_losses, training_state= sess.run([loss, train_step],
                                   feed_dict={X:embedding_text_train[idx], y:embedding_label_train[idx], init_state:training_state})
-
-
+        represent = sess.run([represent_to_embedding], feed_dict)
 
 
     return training_losses
