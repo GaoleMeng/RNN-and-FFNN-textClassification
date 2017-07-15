@@ -10,6 +10,7 @@ import re
 import tensorflow as tf;
 import numpy as np;
 
+
 from bokeh.models import ColumnDataSource, LabelSet
 from bokeh.plotting import figure, show, output_file
 from bokeh.io import output_notebook
@@ -189,7 +190,6 @@ print(len(lines));
 
 # In[46]:
 
-#calculate the word_dic
 
 startnum = 1;
 
@@ -221,8 +221,8 @@ def generate_data(batch_size):
     bar_index = 0;
     for i in range(batch_nums):
         for j in range(batch_size):
-            bar.update(bar_index);
             bar_index += 1
+            bar.update(bar_index)
             for z in range(max_line_length):
                 if z < len(seperate_text[i][j])-1:
                     embedding_label_train[i][j][z][word_dic[seperate_text[i][j][z+1]]] = 1;
@@ -247,7 +247,6 @@ test_label = np.asarray(test_label);
 # print(max_length)
 # print(max_lines)
 state_size = 100;
-
 
 X = tf.placeholder(tf.float32, [batch_size, max_line_length, 100]);
 y = tf.placeholder(tf.float32, [batch_size, max_line_length, startnum]);
@@ -274,7 +273,6 @@ for rnn_input in rnn_inputs:
 	state = rnn_cell(rnn_input, state)
 	rnn_outputs.append(state)
 
-
 with tf.variable_scope("softmax"):
 	U = tf.get_variable('U', [state_size, startnum]);
 	p = tf.get_variable('p', [startnum], initializer=tf.constant_initializer(0.0));
@@ -287,23 +285,96 @@ correct_answer = tf.unstack(y, axis = 1);
 loss = tf.reduce_mean(-tf.reduce_sum(correct_answer*tf.log(predictions), reduction_indices=[1]));
 train_step = tf.train.AdagradOptimizer(0.003).minimize(loss);
 
-def train_network(num_epochs, num_steps, state_size=40, verbose=True):
+represent = tf.add(state);
+
+def train_network(num_epochs, num_steps, state_size=100, verbose=True):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         training_losses = []
-        bar = progressbar.ProgressBar(max_value=(len(lines)))
+        bar = progressbar.ProgressBar(max_value=(len(embedding_text_train)))
         bar_index = 0;
-        for train_step_num in range(1000):
-            bar_index += 1
-            bar.update(bar_index);
+        for train_step_num in range(1):
             for idx, epoch in enumerate(embedding_text_train):
+                bar_index += 1
+                bar.update(bar_index);
                 training_loss = 0
                 training_state = np.zeros((batch_size, state_size))
-                tr_losses, training_state, _ =                     sess.run([loss,
-                              train_step],
+                tr_losses, training_state= sess.run([loss, train_step],
                                   feed_dict={X:embedding_text_train[idx], y:embedding_label_train[idx], init_state:training_state})
+
+
+
+
     return training_losses
+
+
 train_network(batch_nums, 1000);
+
+
+
+
+def training_network(hidden_layer_num, step_length, whether_training, whether_dropout):
+
+	X = tf.placeholder(tf.float32, [None, 100]);
+	y = tf.placeholder(tf.float32, [None, 8]);
+
+	W = tf.Variable(tf.random_normal([100, hidden_layer_num]));
+	b = tf.Variable(tf.random_normal([hidden_layer_num]));
+
+	if (whether_dropout):
+		W = tf.nn.dropout(W, 0.5);
+		h = tf.nn.tanh(tf.matmul(X, W)+b);
+	else:
+		h = tf.nn.tanh(tf.matmul(X, W)+b);
+
+	V = tf.Variable(tf.random_normal([hidden_layer_num, 8]));
+	c = tf.Variable(tf.random_normal([8]));
+
+	if (whether_dropout):
+		V = tf.nn.dropout(V, 0.5);
+		p = tf.nn.softmax(tf.matmul(h, V) + c);
+	else:
+		p = tf.nn.softmax(tf.matmul(h, V) + c);
+
+	if (whether_training):
+		cross_entropy = tf.reduce_mean(-tf.reduce_sum(y * tf.log(p), reduction_indices=[1]))
+		train_step = tf.train.GradientDescentOptimizer(step_length).minimize(cross_entropy)
+		correct_prediction = tf.equal(tf.argmax(p,1), tf.argmax(y,1))
+		accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32));
+		init = tf.initialize_all_variables();
+		test_feed = {X: test_text, y: test_label};
+		with tf.Session() as sess:
+			sess.run(init)
+			cost = 10000;
+			batch_start = 0;
+			for step in range(100000):
+				x1,y1,batch_start = get_next_batch(50, batch_start);
+				sess.run(train_step, feed_dict={X: x1, y: y1});
+				if ((step+1)%100==0):
+					validation_feed = {X: validation_text, y: validation_label};
+					curcost = sess.run(cross_entropy, feed_dict=validation_feed);
+					print("step: %f" % step)
+					print("cost on validation set: %f" % curcost);
+					print("accuracy on validation set: %f" % accuracy.eval(validation_feed));
+
+					print("cost on training set: %f" % sess.run(cross_entropy, feed_dict={X: train_text, y: train_label}));
+					print("accuracy on training set: %f" % accuracy.eval({X: train_text, y: train_label}));
+					print("accuracy on test data: %f" % sess.run(accuracy, feed_dict=test_feed));
+					print(" ")
+					if step == 100000-1:
+						print("accuracy on test data: %f" % sess.run(accuracy, feed_dict=test_feed));
+						return True;					
+					else:
+						cost = curcost
+			return False;
+training_network(50, 0.003, 1, 0);
+
+
+
+
+
+
+
 
 
 # In[68]:
