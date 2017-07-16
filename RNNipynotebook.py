@@ -38,7 +38,7 @@ train_text = [];
 validation_text = [];
 test_text = [];
 
-max_line_length = 20;
+max_line_length = 10;
 min_line_length = 4;
 state_size = 100;
 input_size = 100;
@@ -70,9 +70,9 @@ for i in range(2085):
 
 	label_vec = [0 for x in range(8)];
 	label_vec[whichclass] = 1;
-	if (i < 1585):
+	if (i < file_num_for_train):
 		train_label.append(label_vec);
-	elif (i >= 1585 and i <1835):
+	elif (i >= file_num_for_train and i < file_num_for_train+file_num_for_vali):
 		validation_label.append(label_vec);
 	else:
 		test_label.append(label_vec);
@@ -173,8 +173,9 @@ batch_nums = len(lines) // batch_size;
 
 embedding_label_train = np.zeros((batch_nums, batch_size, max_line_length, startnum), dtype='float32')
 embedding_text_train = np.zeros((batch_nums, batch_size, max_line_length, 100), dtype='float32')
-embedding_text_train_next = np.zeros((1585, max_file_length, max_lineinfile_length, 100), dtype='float32')
-
+embedding_text_train_next = np.zeros((file_num_for_train, max_file_length, max_lineinfile_length, 100), dtype='float32')
+embedding_text_vali_next = np.zeros((file_num_for_vali, max_file_length, max_lineinfile_length, 100), dtype='float32')
+embedding_text_test_next = np.zeros((file_num_for_test, max_file_length, max_lineinfile_length, 100), dtype='float32')
 
 def generate_data(batch_size):
     lines_label = [];
@@ -194,18 +195,23 @@ def generate_data(batch_size):
                 elif z == len(seperate_text[i][j]) -1:
                     embedding_label_train[i][j][z][0] = 1;
                     embedding_text_train[i][j][z] = get_embedding(seperate_text[i][j][z]);
-    for i in range(file_num_for_train):
-    	for j in range(len(seperate_files_lines[i])):
-    		for z in range(len(seperate_files_lines[i][j])):
-    			embedding_text_train_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
+    for i in range(file_num_for_test+file_num_for_vali+file_num_for_train):
+        for j in range(len(seperate_files_lines[i])):
+            for z in range(len(seperate_files_lines[i][j])):
+                if (i < file_num_for_train):
+                    embedding_text_train_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
+                elif (i >= file_num_for_train and i < (file_num_for_train+file_num_for_vali)):
+                	embedding_text_vali_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
+                else:
+                    embedding_text_test_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
 generate_data(50);
 
 
 # In[97]:
 
 train_text = np.zeros([file_num_for_train, 100],dtype='float32');
-validation_text = np.asarray(validation_text);
-test_text = np.asarray(test_text);
+validation_text = np.zeros([file_num_for_vali, 100],dtype='float32');
+test_text = np.zeros([file_num_for_test, 100],dtype='float32');
 train_label = np.asarray(train_label);
 validation_label = np.asarray(validation_label);
 test_label = np.asarray(test_label);
@@ -225,7 +231,7 @@ rnn_inputs = tf.unstack(X, axis = 1)
 rnn_inputs_for_second_stage = tf.unstack(X_for_second_stage, axis = 1)
 
 with tf.variable_scope("rnn_cell"):
-    W1 = tf.get_variable("W1", [100 + state_size, state_size],initializer=tf.constant_initializer(0.0));
+    W1 = tf.get_variable("W1", [100 + state_size, state_size]);
     b1 = tf.get_variable("b1", [state_size], initializer=tf.constant_initializer(0.0));
 
 def rnn_cell(rnn_input, state):
@@ -289,10 +295,31 @@ def train_network(num_epochs, num_steps, state_size=100, verbose=True):
             bar_index += 1
             bar.update(bar_index);
             tmp = sess.run([represent_to_embedding], feed_dict={X_for_second_stage:embedding_text_train_next[idx], init_state:training_state_second_stage});
-            print(tmp);
             train_text[idx] = tmp[0];
-    return training_losses
+
+        bar = progressbar.ProgressBar(max_value=(250))
+    return []
 train_network(batch_nums, 1000);
+
+
+
+
+def get_next_batch(batch_num, batch_start):
+	new_batch_start = (batch_start + batch_num - 1) % len(train_text);
+	if new_batch_start > batch_start:
+		tmp = batch_start;
+		batch_start = (new_batch_start + 1) % len(train_text);
+		return train_text[tmp:new_batch_start], train_label[tmp:new_batch_start], batch_start;
+	else:
+		tmp = batch_start;
+		batch_start = (new_batch_start + 1) % len(train_text);
+
+		return_train_text = np.concatenate((train_text[tmp:(len(train_text)-1)], train_text[0:batch_start]));
+		return_train_label = np.concatenate((train_label[tmp:(len(train_label)-1)],train_label[0:batch_start]))
+		# return_train_text = train_text[tmp:(len(train_text)-1)].append(train_text[0:batch_start]);
+		# return_train_label = train_label[tmp:(len(train_label)-1)].append(train_label[0:batch_start]);
+		return return_train_text, return_train_label, batch_start;
+
 
 
 def training_network(hidden_layer_num, step_length, whether_training, whether_dropout):
