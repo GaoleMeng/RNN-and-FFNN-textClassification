@@ -38,7 +38,7 @@ train_text = [];
 validation_text = [];
 test_text = [];
 
-max_line_length = 10;
+max_line_length = 8;
 min_line_length = 4;
 state_size = 100;
 input_size = 100;
@@ -201,9 +201,9 @@ def generate_data(batch_size):
                 if (i < file_num_for_train):
                     embedding_text_train_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
                 elif (i >= file_num_for_train and i < (file_num_for_train+file_num_for_vali)):
-                	embedding_text_vali_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
+                	embedding_text_vali_next[i- file_num_for_train][j][z] = get_embedding(seperate_files_lines[i][j][z]);
                 else:
-                    embedding_text_test_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
+                    embedding_text_test_next[i- file_num_for_train - file_num_for_vali][j][z] = get_embedding(seperate_files_lines[i][j][z]);
 generate_data(50);
 
 
@@ -289,15 +289,20 @@ def train_network(num_epochs, num_steps, state_size=100, verbose=True):
                                   feed_dict={X:embedding_text_train[idx], y:embedding_label_train[idx], init_state:training_state})
         training_state_second_stage = np.zeros((max_file_length, state_size))
 
-        bar = progressbar.ProgressBar(max_value=(1586))
+        bar = progressbar.ProgressBar(max_value=(file_num_for_vali+file_num_for_train+file_num_for_test+1))
         bar_index = 0;
-        for idx in range(file_num_for_train):
+        for idx in range(file_num_for_train+file_num_for_test+file_num_for_vali):
             bar_index += 1
             bar.update(bar_index);
-            tmp = sess.run([represent_to_embedding], feed_dict={X_for_second_stage:embedding_text_train_next[idx], init_state:training_state_second_stage});
-            train_text[idx] = tmp[0];
-
-        bar = progressbar.ProgressBar(max_value=(250))
+            if idx < file_num_for_train:
+                tmp = sess.run([represent_to_embedding], feed_dict={X_for_second_stage:embedding_text_train_next[idx], init_state:training_state_second_stage});
+                train_text[idx] = tmp[0];
+            elif idx >= file_num_for_train and idx < (file_num_for_vali+file_num_for_train):
+                tmp = sess.run([represent_to_embedding], feed_dict={X_for_second_stage:embedding_text_vali_next[idx], init_state:training_state_second_stage});
+                validation_text[idx- file_num_for_train] = tmp[0];
+            else:
+                tmp = sess.run([represent_to_embedding], feed_dict={X_for_second_stage:embedding_text_test_next[idx], init_state:training_state_second_stage});
+                test_text[idx - file_num_for_train - file_num_for_vali] = tmp[0];
     return []
 train_network(batch_nums, 1000);
 
