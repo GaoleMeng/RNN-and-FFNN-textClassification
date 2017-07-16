@@ -38,12 +38,12 @@ train_text = [];
 validation_text = [];
 test_text = [];
 
-max_line_length = 40;
-min_line_length = 3;
+max_line_length = 20;
+min_line_length = 4;
 state_size = 100;
 input_size = 100;
 
-file_num_for_test = 1585;
+file_num_for_train = 1585;
 file_num_for_vali = 250;
 file_num_for_test = 250;
 max_file_length = 0;
@@ -58,16 +58,6 @@ rawlabel = doc.xpath('//keywords/text()');
 
 
 for i in range(2085):
-	# whichclass = "ooo";
-
-	# if ("technology" in rawlabel[i]):
-	# 	whichclass = whichclass.replace(whichclass[0], "T", 1);
-	# if ("entertainment" in rawlabel[i]):
-	# 	whichclass = whichclass.replace(whichclass[1], "E", 1);
-	# if ("design" in rawlabel[i]):
-	# 	whichclass = whichclass.replace(whichclass[2], "D", 1);
-		# whichclass = "ooo";
-
 	whichclass = 0;
 
 	if ("technology" in rawlabel[i]):
@@ -106,11 +96,6 @@ for sent_str in sentences_strings_ted:
 
 model_ted = Word2Vec(sentences_ted, size=100, window=5, min_count=5, workers=4)
 
-
-# In[35]:
-
-
-
 def get_embedding(word):
 	if (word in model_ted.wv):
 		return model_ted.wv[word];
@@ -124,9 +109,6 @@ def get_snetences_matrix_embedding(sentences):
 		for word in lines:
 			return_matrix.append(get_embedding(word));
 	return return_matrix;
-
-
-# In[44]:
 
 max_length = 0;
 lines = [];
@@ -151,31 +133,7 @@ for i in range(2085):
 	for _line in sentences_ted:
 		max_lineinfile_length = max(max_lineinfile_length, len(_line));
 		lines.append(_line)
-	# X = tf.placeholder(tf.float32, [None, 100]);
-	# y = tf.placeholder(tf)
 
-	# sum_embedding = np.asarray([0 for x in range(100)])
-	# num = 1
-	# for t in range(len(sentences_ted)):
-	# 	for p in range(len(sentences_ted[t])):
-	# 		sum_embedding = sum_embedding + np.asarray(get_embedding(sentences_ted[t][p]));
-	# 		num = num + 1;
-	# sum_embedding = np.asarray(sum_embedding);
-	# for tt in range(100):
-	# 	sum_embedding[tt] /= float(num);
-	# if (i < 1085):
-	# 	train_text.append(sum_embedding);
-	# elif (i >= 1085 and i <1835):
-	# 	validation_text.append(sum_embedding);
-	# else:
-	# 	test_text.append(sum_embedding);
-
-
-
-
-# In[45]:
-
-# print(len(lines));
 delete_list = [];
 max_length = 0;
 
@@ -209,9 +167,6 @@ for line in lines:
             startnum = startnum + 1;
 
 
-# In[78]:
-
-
 ## pre fetch the data
 batch_size = 50;
 batch_nums = len(lines) // batch_size;
@@ -241,17 +196,14 @@ def generate_data(batch_size):
                     embedding_text_train[i][j][z] = get_embedding(seperate_text[i][j][z]);
     for i in range(file_num_for_train):
     	for j in range(len(seperate_files_lines[i])):
-    		for z in range(len(seperate_files_lines[i][j]))
+    		for z in range(len(seperate_files_lines[i][j])):
     			embedding_text_train_next[i][j][z] = get_embedding(seperate_files_lines[i][j][z]);
-
-
-# def get_next_batch_lines(batch_num):
 generate_data(50);
 
 
 # In[97]:
 
-train_text = np.zeros([file_num_for_train, 100]);
+train_text = np.zeros([file_num_for_train, 100],dtype='float32');
 validation_text = np.asarray(validation_text);
 test_text = np.asarray(test_text);
 train_label = np.asarray(train_label);
@@ -264,15 +216,16 @@ state_size = 100;
 
 X = tf.placeholder(tf.float32, [batch_size, max_line_length, 100]);
 y = tf.placeholder(tf.float32, [batch_size, max_line_length, startnum]);
+
 X_for_second_stage = tf.placeholder(tf.float32, [max_file_length, max_lineinfile_length, 100]);
-init_state = tf.zeros([batch_size, state_size]);
+init_state = tf.placeholder(tf.float32, [None, state_size]);
+#init_state_second = tf.placeholder(tf.float32, [max_file_length, state_size])
 
 rnn_inputs = tf.unstack(X, axis = 1)
-rnn_inputs_for_second_stage = tf.unstack(X, axis = 1)
+rnn_inputs_for_second_stage = tf.unstack(X_for_second_stage, axis = 1)
 
-print(state_size)
 with tf.variable_scope("rnn_cell"):
-    W1 = tf.get_variable("W1", [100 + state_size, state_size]);
+    W1 = tf.get_variable("W1", [100 + state_size, state_size],initializer=tf.constant_initializer(0.0));
     b1 = tf.get_variable("b1", [state_size], initializer=tf.constant_initializer(0.0));
 
 def rnn_cell(rnn_input, state):
@@ -283,16 +236,19 @@ def rnn_cell(rnn_input, state):
 	return tf.tanh(tf.matmul(tf.concat([rnn_input, state], 1), W1) + b1)
 
 state = init_state;
+state_for_next = init_state;
 rnn_outputs = [];
-rnn_outpus_for_second_stage = [];
+rnn_outputs_for_second_stage = [];
 
 for rnn_input in rnn_inputs:
 	state = rnn_cell(rnn_input, state)
 	rnn_outputs.append(state)
 
-for rnn_input in rnn_inputs_for_second_stage:
-	state = rnn_cell(rnn_input, state)
-	rnn_outputs_for_second_stage.append(state)
+for rnn_inputu in rnn_inputs_for_second_stage:
+	state_for_next = rnn_cell(rnn_inputu, state_for_next)
+	rnn_outputs_for_second_stage.append(state_for_next)
+
+final_state = rnn_outputs[-1];
 
 with tf.variable_scope("softmax"):
 	U = tf.get_variable('U', [state_size, startnum]);
@@ -307,32 +263,36 @@ loss = tf.reduce_mean(-tf.reduce_sum(correct_answer*tf.log(predictions), reducti
 train_step = tf.train.AdagradOptimizer(0.003).minimize(loss);
 
 represent = tf.add_n(rnn_outputs_for_second_stage)
-represent_to_embedding = tf.reduce_mean(represent, axis = 0).eval();
+represent_to_embedding = tf.reduce_mean(represent, axis = 0);
 
-
+print(max_file_length)
 def train_network(num_epochs, num_steps, state_size=100, verbose=True):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        training_losses = []
-        bar = progressbar.ProgressBar(max_value=(len(embedding_text_train)))
-        bar_index = 0;
+        # training_losses = []
+        
+        bar_first = progressbar.ProgressBar(max_value=(len(embedding_text_train)))
+       	bar_first_index = 0;
+        training_state = np.zeros((batch_size, state_size))
         for train_step_num in range(1):
             for idx, epoch in enumerate(embedding_text_train):
-                bar_index += 1
-                bar.update(bar_index);
+                bar_first_index += 1;
+                bar_first.update(bar_first_index);
                 training_loss = 0
-                training_state = np.zeros((batch_size, state_size))
-                tr_losses, training_state= sess.run([loss, train_step],
+                tr_losses, training_state, training_state= sess.run([loss, train_step, final_state],
                                   feed_dict={X:embedding_text_train[idx], y:embedding_label_train[idx], init_state:training_state})
-        represent = sess.run([represent_to_embedding], feed_dict)
+        training_state_second_stage = np.zeros((max_file_length, state_size))
 
-
+        bar = progressbar.ProgressBar(max_value=(1586))
+        bar_index = 0;
+        for idx in range(file_num_for_train):
+            bar_index += 1
+            bar.update(bar_index);
+            tmp = sess.run([represent_to_embedding], feed_dict={X_for_second_stage:embedding_text_train_next[idx], init_state:training_state_second_stage});
+            print(tmp);
+            train_text[idx] = tmp[0];
     return training_losses
-
-
 train_network(batch_nums, 1000);
-
-
 
 
 def training_network(hidden_layer_num, step_length, whether_training, whether_dropout):
@@ -389,14 +349,7 @@ def training_network(hidden_layer_num, step_length, whether_training, whether_dr
 					else:
 						cost = curcost
 			return False;
-training_network(50, 0.003, 1, 0);
-
-
-
-
-
-
-
+training_network(100, 0.003, 1, 0);
 
 
 # In[68]:
