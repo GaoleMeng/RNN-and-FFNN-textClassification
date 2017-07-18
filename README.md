@@ -15,11 +15,11 @@ Word embedding is one of the most heated NLP subject, which basically create an 
 
 Word embedding can be generated in various way. In fact the most popular and fast way is to generate through a neural network of three layers, which itself serves as the language probilistic model to predict the next word. By previous word, we use n-gram to model, which basically take the previous several words to predict.
 
-![alt text](Embedding.png  "IPA Simulation Platform")
+![alt text](Embedding.png  "embedding")
 
 The object function, as used in Marklov's paper, is called negative sampling,  which maximize the probility of not choosing the word that is not correct by sampling:
 
-![alt text](nagative.png  "IPA Simulation Platform")
+![alt text](nagative.png  "negative sampling")
 
 
 ### FNNN and RNN classification
@@ -28,7 +28,11 @@ Since we now only have the embedding for each word in the article, we still need
 
 Since we have pretrained model of word embedding of the whole text, we can look up the embedding of everyword in the model. The FFNN solution is straight forward, which directly sum up the embedding of the text field, which serve as the label of the whole text.
 
-The RNN solution is a bit complicated. RNN, which stands for the recurrent neural network. In each cell we take the previous input to the model to
+The RNN solution is a bit complicated. RNN, which stands for the recurrent neural network. In each cell we take the previous hidden layer and the current input to generate the new output.
+
+![alt text](RNN.png  "RNN")
+
+In this project, we sum up all the hidden layer parameter to generate the embedding of the whole text.
 
 
 ## Install
