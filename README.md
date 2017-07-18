@@ -19,7 +19,7 @@ Word embedding can be generated in various way. In fact the most popular and fas
 
 The object function, as used in Marklov's paper, is called negative sampling,  which maximize the probility of not choosing the word that is not correct by sampling:
 
-![alt text](nagative.png  "negative sampling")
+![alt text](negative.png  "negative sampling")
 
 
 ### FNNN and RNN classification
