@@ -27,10 +27,6 @@ import lxml.etree
 if not os.path.isfile('ted_en-20160408.zip'):
     urllib.request.urlretrieve("https://wit3.fbk.eu/get.php?path=XML_releases/xml/ted_en-20160408.zip&filename=ted_en-20160408.zip", filename="ted_en-20160408.zip")
 
-
-# In[33]:
-
-
 train_label = [];
 validation_label = [];
 test_label = [];

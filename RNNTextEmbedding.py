@@ -171,6 +171,8 @@ for line in lines:
 batch_size = 50;
 batch_nums = len(lines) // batch_size;
 
+del doc;
+
 embedding_label_train = np.zeros((batch_nums, batch_size, max_line_length, startnum), dtype='float32')
 embedding_text_train = np.zeros((batch_nums, batch_size, max_line_length, 100), dtype='float32')
 embedding_text_train_next = np.zeros((file_num_for_train, max_file_length, max_lineinfile_length, 100), dtype='float32')
@@ -261,6 +263,9 @@ represent = tf.add_n(rnn_outputs_for_second_stage)
 represent_to_embedding = tf.reduce_mean(represent, axis = 0);
 
 print(max_file_length)
+
+
+
 def train_network(num_epochs, num_steps, state_size=100, verbose=True):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -274,12 +279,13 @@ def train_network(num_epochs, num_steps, state_size=100, verbose=True):
                 bar_first_index += 1;
                 bar_first.update(bar_first_index);
                 training_loss = 0
-                tr_losses, training_state, training_state= sess.run([loss, train_step, final_state],
+                training_state, training_state= sess.run([train_step, final_state],
                                   feed_dict={X:embedding_text_train[idx], y:embedding_label_train[idx], init_state:training_state})
         training_state_second_stage = np.zeros((max_file_length, state_size))
 
         bar = progressbar.ProgressBar(max_value=(file_num_for_vali+file_num_for_train+file_num_for_test+1))
         bar_index = 0;
+
 
         text_embedding_train = open("data/textEmbeddingTrain.txt","w")
         text_embedding_vali = open("data/textEmbeddingVali.txt","w")
